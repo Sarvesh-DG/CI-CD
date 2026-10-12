@@ -1,0 +1,21 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless calculator Lambda function
+
+Resources:
+  CalculatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: python-calculator
+      CodeUri: .
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        CalculatorApi:
+          Type: Api
+          Properties:
+            Path: /calculate
+            Method: post
