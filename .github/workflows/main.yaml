@@ -1,3 +1,4 @@
+
 name: CI/CD Pipeline
 
 on:
@@ -67,11 +68,21 @@ jobs:
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           BUCKET="calculator-lambda-${ACCOUNT_ID}-us-east-1"
           KEY="function-${GITHUB_SHA}.zip"
+
           echo "DEPLOYMENT_BUCKET=$BUCKET" >> "$GITHUB_ENV"
           echo "DEPLOYMENT_KEY=$KEY" >> "$GITHUB_ENV"
+
           aws s3 cp function.zip "s3://${BUCKET}/${KEY}"
 
+      - name: Verify uploaded Lambda package
+        shell: bash
+        run: |
+          aws s3api head-object \
+            --bucket "${DEPLOYMENT_BUCKET}" \
+            --key "${DEPLOYMENT_KEY}"
+
       - name: Deploy with CloudFormation
+        shell: bash
         run: |
           aws cloudformation deploy \
             --template-file template.yaml \
