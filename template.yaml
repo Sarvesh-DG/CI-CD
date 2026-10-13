@@ -1,4 +1,6 @@
+
 AWSTemplateFormatVersion: "2010-09-09"
+
 Description: Calculator Lambda deployment using CloudFormation
 
 Parameters:
@@ -8,8 +10,7 @@ Parameters:
 
   DeploymentKey:
     Type: String
-    Default: function.zip
-    Description: S3 object key for the Lambda ZIP file
+    Description: S3 object key for the versioned Lambda ZIP file
 
 Resources:
   CalculatorExecutionRole:
@@ -22,6 +23,7 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
+
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
@@ -33,6 +35,7 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt CalculatorExecutionRole.Arn
       Timeout: 10
+
       Code:
         S3Bucket: !Ref DeploymentBucket
         S3Key: !Ref DeploymentKey
