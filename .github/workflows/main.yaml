@@ -1,5 +1,4 @@
-
-name: Calculator CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -7,16 +6,78 @@ on:
   pull_request:
     branches: ["**"]
 
+permissions:
+  contents: read
+
 jobs:
-  build-and-test:
+  build:
+    name: Build Application
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t python-calculator .
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Run unit tests inside Docker
-        run: docker run --rm python-calculator
+      - name: Verify Python files
+        run: python -m py_compile calculator.py lambda_function.py
+
+      - name: Run unit tests
+        run: python -m unittest discover -v
+
+      - name: Build Docker image
+        run: docker build -t calculator-app .
+
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Package Lambda files
+        shell: bash
+        run: |
+          mkdir -p package
+          cp calculator.py lambda_function.py package/
+          cd package
+          zip -r ../function.zip .
+          cd ..
+
+      - name: Upload Lambda package to S3
+        shell: bash
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET="calculator-lambda-${ACCOUNT_ID}-us-east-1"
+          KEY="function-${GITHUB_SHA}.zip"
+          echo "DEPLOYMENT_BUCKET=$BUCKET" >> "$GITHUB_ENV"
+          echo "DEPLOYMENT_KEY=$KEY" >> "$GITHUB_ENV"
+          aws s3 cp function.zip "s3://${BUCKET}/${KEY}"
+
+      - name: Deploy with CloudFormation
+        run: |
+          aws cloudformation deploy \
+            --template-file template.yaml \
+            --stack-name calculator-lambda-stack \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides \
+              DeploymentBucket="${DEPLOYMENT_BUCKET}" \
+              DeploymentKey="${DEPLOYMENT_KEY}" \
+            --region us-east-1

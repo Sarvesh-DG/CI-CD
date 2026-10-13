@@ -1,8 +1,9 @@
+
 FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY calculator.py .
-COPY test_calculator.py .
+COPY calculator.py lambda_function.py ./
+COPY test_calculator.py test_lambda_function.py ./
 
-CMD ["python","-m","unittest","discover","-v"]
+CMD ["python", "-m", "unittest", "-v", "test_calculator", "test_lambda_function"]

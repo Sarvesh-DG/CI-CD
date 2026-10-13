@@ -5,7 +5,6 @@ from calculator import add, mul, sub
 
 def lambda_handler(event, context):
     try:
-        # Extract the request body from API Gateway
         body = event.get("body")
 
         if isinstance(body, str):
@@ -13,7 +12,6 @@ def lambda_handler(event, context):
         elif isinstance(body, dict):
             data = body
         else:
-            # Support direct Lambda invocation too
             data = event
 
         operations = {
@@ -30,9 +28,6 @@ def lambda_handler(event, context):
             raise ValueError(
                 "Operation must be add, subtract or multiply"
             )
-
-        if type(a) is not int or type(b) is not int:
-            raise ValueError("Inputs must be integers")
 
         result = operations[operation](a, b)
 
