@@ -1,22 +1,94 @@
 
-name: Calculator CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: ["**"]
+    branches:
+      - "**"
   pull_request:
-    branches: ["**"]
+    branches:
+      - "**"
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
+  build:
+    name: Build and Test
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t python-calculator .
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Run unit tests inside Docker
-        run: docker run --rm python-calculator
+      - name: Compile Python files
+        run: |
+          python -m py_compile calculator.py lambda_function.py
+
+      - name: Run unit tests
+        run: |
+          python -m unittest discover -v
+
+      - name: Build Docker image
+        run: |
+          docker build -t calculator-app .
+
+      - name: Run tests inside Docker image
+        run: |
+          docker run --rm calculator-app \
+            python -m unittest discover -v
+
+  deploy:
+    name: Deploy with AWS SAM
+    runs-on: ubuntu-latest
+    needs: build
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Validate SAM template
+        run: |
+          sam validate --template-file template.yaml
+
+      - name: Build SAM application
+        run: |
+          sam build --template-file template.yaml
+
+      - name: Deploy using SAM
+        run: |
+          sam deploy \
+            --template-file .aws-sam/build/template.yaml \
+            --stack-name calculator-lambda-stack \
+            --region us-east-1 \
+            --capabilities CAPABILITY_IAM \
+            --s3-bucket calculator-lambda-614126170623-us-east-1 \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset

@@ -1,21 +1,40 @@
 
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Serverless calculator Lambda function
+Description: Calculator Lambda application deployed using AWS SAM
 
 Resources:
+  CalculatorExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
   CalculatorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: python-calculator
-      CodeUri: .
-      Handler: lambda_function.lambda_handler
+      FunctionName: calculator-app
       Runtime: python3.12
+      Handler: lambda_function.lambda_handler
+      CodeUri: .
+      Role: !GetAtt CalculatorExecutionRole.Arn
       Timeout: 10
       MemorySize: 128
-      Events:
-        CalculatorApi:
-          Type: Api
-          Properties:
-            Path: /calculate
-            Method: post
+
+Outputs:
+  CalculatorFunctionName:
+    Description: Calculator Lambda function name
+    Value: !Ref CalculatorFunction
+
+  CalculatorFunctionArn:
+    Description: Calculator Lambda function ARN
+    Value: !GetAtt CalculatorFunction.Arn
